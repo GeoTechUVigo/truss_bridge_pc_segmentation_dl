@@ -125,7 +125,8 @@ def val_one_epoch(sess, ops, dataset, batch_size, file_name: str=None, bandwidth
         loss_sum += loss_val
 
         # Semantic metrics
-        sem_metrics_sum += metrics.semantic_metrics(current_sem.reshape(-1), pred_sem_label_val.reshape(-1))
+        oAcc, mAcc, mIoU, _ = metrics.semantic_metrics(current_sem.reshape(-1), pred_sem_label_val.reshape(-1))
+        sem_metrics_sum += oAcc, mAcc, mIoU
 
         # Analyse each point cloud 
         for i in range(batch_size):
@@ -133,7 +134,8 @@ def val_one_epoch(sess, ops, dataset, batch_size, file_name: str=None, bandwidth
             # Ids of each instance
             _, groupids, _ = cluster(pred_ins_val[i], bandwidth)
             # Instance metrics
-            ins_metrics_sum += metrics.instance_metrics(current_label[i], groupids)
+            mPrec, mRecall, cov, wCov, _ = metrics.instance_metrics(current_label[i], groupids)
+            ins_metrics_sum += mPrec, mRecall, cov, wCov
 
             # Save a segmented point cloud
             if not file_name == None and save:
