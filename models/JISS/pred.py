@@ -41,12 +41,12 @@ parser.add_argument('--batch_size', type=int, default=1, help='Batch Size during
 parser.add_argument('--seed', type=int, default=10, help='Seed for pseudorandom processes [default: 10]')
 parser.add_argument('--cube_size', type=float, default=10.0, help='Size of the cube of subclouds [default: 10.0]')
 parser.add_argument('--num_dims', type=int, default=3, help='Number of dimensions of the point cloud [default: 3 (xyz)]')
-parser.add_argument('--num_classes', type=int, default=4, help='Number os semantic classes [default: 4]')
+parser.add_argument('--num_classes', type=int, default=2, help='Number os semantic classes [default: 4]')
 parser.add_argument('--bandwidth', type=float, default=0.5, help='Bandwidth for meanshift clustering [default: 0.5]')
-parser.add_argument('--dataset_path', type=str, default='data/real_point_clouds_downsampled', help='Path of the dataset')
-parser.add_argument('--model_path', default='data/trained_models/k_0/epoch_0636.ckpt', help='Log dir [default: ]')
+parser.add_argument('--dataset_path', type=str, default='data_/real_point_clouds_downsampled', help='Path of the dataset')
+parser.add_argument('--model_path', default='data/trained_models/k_0/epoch_0657.ckpt', help='Log dir [default: ]')
 parser.add_argument('--path_pred', type=str, default='data/pred', help='Folder to save predicted point clouds [default: data/pred]')
-parser.add_argument('--path_pred_cubes', type=str, default='data/pred/cubes', help='Folder to save predicted point clouds cubes [default: data/pred]')
+parser.add_argument('--path_pred_cubes', type=str, default=None, help='Folder to save predicted point clouds cubes [default: data/pred]')
 
 FLAGS = parser.parse_args()
 
@@ -66,12 +66,14 @@ PATH_PRED_CUBES = FLAGS.path_pred_cubes
 # CHECK PATHS
 DATASET_PATH = pathlib.Path(DATASET_PATH)
 PATH_PRED = pathlib.Path(PATH_PRED)
-PATH_PRED_CUBES = pathlib.Path(PATH_PRED_CUBES)
-MODEL_PATH = pathlib.Path(MODEL_PATH)
+MODEL_PATH=pathlib.Path(MODEL_PATH)
+
+if not PATH_PRED_CUBES is None:
+    PATH_PRED_CUBES=pathlib.Path(PATH_PRED_CUBES)
+    if not PATH_PRED_CUBES.is_dir(): raise ValueError("PATH_PRED_CUBES {} does not exist.".format(str(PATH_PRED_CUBES)))
 
 if not DATASET_PATH.is_dir(): raise ValueError("DATASET_PATH {} does not exist.".format(str(DATASET_PATH)))
 if not PATH_PRED.is_dir(): raise ValueError("PATH_PRED {} does not exist.".format(str(PATH_VAL)))
-if not PATH_PRED_CUBES.is_dir(): raise ValueError("PATH_PRED_CUBES {} does not exist.".format(str(PATH_PRED_CUBES)))
 #==============================================================================
 
 # Dataset files

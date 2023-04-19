@@ -232,7 +232,7 @@ class GeneralDataset():
 			instance_seg = (inFile.user_data).astype(np.int32)
 			
 			# Split the point cloud in cubes
-			indexes = self.__cubes_through_the_cloud_jsnet(coordinates)
+			indexes = self.__cubes_through_the_cloud(coordinates)
 			
 
 			raw_point_set = coordinates[indexes]
