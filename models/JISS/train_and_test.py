@@ -340,7 +340,8 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
         save_errors_folder.mkdir(exist_ok=True)
 
         # Test
-        oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov = test_on_dataset(sess, ops, test, BATCH_SIZE, save_folder=save_folder, save_errors=save_errors_folder, bandwidth=BANDWIDTH)
+        mean_num_pts_in_group = np.ones(NUM_CLASSES)
+        oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov = test_on_dataset(sess, ops, test, NUM_CLASSES, mean_num_pts_in_group, save_folder=save_folder, save_errors=save_errors_folder, bandwidth=BANDWIDTH)
 
         # Save in test metrics
         metrics = np.array([oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov])
