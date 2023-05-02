@@ -183,6 +183,8 @@ class GeneralDataset():
 			# Load labels of each point
 			semantic_seg = (inFile.Classification).astype(np.int32)
 			instance_seg = (inFile.user_data).astype(np.int32)
+			semantic_seg_nodes = (inFile.nodes).astype(np.int32)
+			semantic_seg[semantic_seg_nodes==1] = semantic_seg.max()+1 # labels of nodes
 
 			# Choose a random point as center of the cube that will be taken
 			curcenter = coordinates[self.np_RandomState.choice(len(coordinates),1)[0],:]
@@ -230,6 +232,8 @@ class GeneralDataset():
 			# Load labels of the point
 			semantic_seg = (inFile.Classification).astype(np.int32)
 			instance_seg = (inFile.user_data).astype(np.int32)
+			semantic_seg_nodes = (inFile.nodes).astype(np.int32)
+			semantic_seg[semantic_seg_nodes==1] = semantic_seg.max()+1 # labels of nodes
 			
 			# Split the point cloud in cubes
 			indexes = self.__cubes_through_the_cloud(coordinates)
