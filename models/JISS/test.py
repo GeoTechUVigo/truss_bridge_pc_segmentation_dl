@@ -33,6 +33,7 @@ from one_epoch_functions import val_one_epoch
 from one_epoch_functions import test_on_dataset
 from log_util import get_logger
 from load_las_data import GeneralDataset
+from utils.check_path import check_path
 #==============================================================================
 
 # Check GPU
@@ -55,7 +56,7 @@ parser.add_argument('--momentum', type=float, default=0.9, help='Initial learnin
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
 parser.add_argument('--decay_step', type=int, default=12500, help='Decay step for lr decay [default: 12500]')
 parser.add_argument('--decay_rate', type=float, default=0.5, help='Decay rate for lr decay [default: 0.5]')
-parser.add_argument('--dataset_path', type=str, default='data/data/k_4', help='Path of the dataset')
+parser.add_argument('--dataset_path', type=str, default='data/data_test/k_4', help='Path of the dataset')
 parser.add_argument('--val_size', type=float, default=0.2, help='Ratio val/train [default:0.2]')
 parser.add_argument('--k_fold', type=int, default=5, help='Numbers of folds for K fold validation [default: 5]')
 parser.add_argument('--seed', type=int, default=10, help='Seed for pseudorandom processes [default: 10]')
@@ -98,13 +99,13 @@ MODELS_DIR = FLAGS.models_dir
 MODEL_PATH = FLAGS.model_path
 
 # CHECK PATHS
-LOG_DIR = pathlib.Path(LOG_DIR)
-MODELS_DIR = pathlib.Path(MODELS_DIR)
-DATASET_PATH = pathlib.Path(DATASET_PATH)
-PATH_VAL= pathlib.Path(PATH_VAL)
-PATH_TEST = pathlib.Path(PATH_TEST)
-PATH_TEST_CUBES = pathlib.Path(PATH_TEST_CUBES)
-MODEL_PATH = pathlib.Path(MODEL_PATH)
+LOG_DIR = check_path(LOG_DIR)
+MODELS_DIR = check_path(MODELS_DIR)
+DATASET_PATH = check_path(DATASET_PATH)
+PATH_VAL= check_path(PATH_VAL)
+PATH_TEST = check_path(PATH_TEST)
+PATH_TEST_CUBES = check_path(PATH_TEST_CUBES)
+MODEL_PATH = check_path(MODEL_PATH)
 PATH_ERRORS = 'data/test/k_4/errors'
 #==============================================================================
 
@@ -193,10 +194,11 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
 
     # Test
     mean_num_pts_in_group = np.ones(NUM_CLASSES)
-    oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov = test_on_dataset(sess, ops, test, NUM_CLASSES, mean_num_pts_in_group, save_folder=PATH_TEST, save_errors=PATH_ERRORS, save_cubes=PATH_TEST_CUBES, bandwidth=BANDWIDTH)
+    oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov, accs = test_on_dataset(sess, ops, test, NUM_CLASSES, mean_num_pts_in_group, save_folder=PATH_TEST, save_errors=PATH_ERRORS, save_cubes=PATH_TEST_CUBES, bandwidth=BANDWIDTH)
 
     # Save in test metrics
     metrics = np.array([oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov])
+    metrics = np.concatenate((metrics, accs))
     best_model_path=str(MODEL_PATH)
     test_metrics_path = LOG_DIR.joinpath('metrics_test.csv')
     with open(str(test_metrics_path), 'a') as csvfile:

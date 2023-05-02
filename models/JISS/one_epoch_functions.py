@@ -65,7 +65,7 @@ def train_one_epoch(sess, ops, dataset, batch_size):
     return loss_train
 
 
-def val_one_epoch(sess, ops, dataset, batch_size, file_name: str=None, bandwidth=1):
+def val_one_epoch(sess, ops, dataset, batch_size, num_classes, file_name: str=None, bandwidth=1):
     """
     Function for artificial neural network validation in the tensorflow sessions.
     It uses the data from dataset in order by taking batches of the indicated size.
@@ -81,6 +81,7 @@ def val_one_epoch(sess, ops, dataset, batch_size, file_name: str=None, bandwidth
     :param train_writer: tf.summary.FileWriter.
     :param dataset: GeneralDataset obeject with the dataset used for training.
     :param batch_size: size of the batch.
+    :param num_classes: snumber of semantic classes.
     :param file_name: name for saving the first point cloud segmented [default: None].
     :param bandwidth: parametre used by the mean-shift clustering algorithm for the grouping of instances [default: 1].
     :return:
@@ -104,6 +105,8 @@ def val_one_epoch(sess, ops, dataset, batch_size, file_name: str=None, bandwidth
     loss_sum = 0
     # Semantic: oAcc, mAcc and mIoU
     sem_metrics_sum = np.zeros(3)
+    # accuracy of each class
+    sem_metrics_classbyclass = np.zeros(num_classes)
     # Instance: mPrec(IoU>0.5), mREc(IoU>0.5), Cov and WCov
     ins_metrics_sum = np.zeros(4)
 
@@ -125,8 +128,9 @@ def val_one_epoch(sess, ops, dataset, batch_size, file_name: str=None, bandwidth
         loss_sum += loss_val
 
         # Semantic metrics
-        oAcc, mAcc, mIoU, _ = metrics.semantic_metrics(current_sem.reshape(-1), pred_sem_label_val.reshape(-1))
+        oAcc, mAcc, mIoU, accs, _ = metrics.semantic_metrics(current_sem.reshape(-1), pred_sem_label_val.reshape(-1), num_classes)
         sem_metrics_sum += oAcc, mAcc, mIoU
+        sem_metrics_classbyclass += accs
 
         # Analyse each point cloud 
         for i in range(batch_size):
@@ -146,6 +150,7 @@ def val_one_epoch(sess, ops, dataset, batch_size, file_name: str=None, bandwidth
             
     loss_val = loss_sum / num_batches
     sem_metrics = sem_metrics_sum / num_batches
+    sem_metrics_classbyclass = sem_metrics_classbyclass / len(dataset)
     ins_metrics = ins_metrics_sum / (num_batches*batch_size)
     
     oAcc = sem_metrics[0]
@@ -156,7 +161,7 @@ def val_one_epoch(sess, ops, dataset, batch_size, file_name: str=None, bandwidth
     cov = ins_metrics[2]
     wCov = ins_metrics[3]
 
-    return loss_val, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov
+    return loss_val, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov, sem_metrics_classbyclass
 
 
 def test_on_dataset(sess, ops, dataset, num_classes, mean_num_pts_in_group, save_folder=None, save_cubes=None, save_errors=None, bandwidth=1):
@@ -193,6 +198,8 @@ def test_on_dataset(sess, ops, dataset, num_classes, mean_num_pts_in_group, save
     # Variables to calculate the metrics. One for each class in segmentation.
     # Semantic: oAcc, mAcc and mIoU
     sem_metrics_sum = np.zeros(3)
+    # accuracy of each class
+    sem_metrics_classbyclass = np.zeros(num_classes)
     # Instance: mPrec(IoU>0.5), mREc(IoU>0.5), Cov and WCov
     ins_metrics_sum = np.zeros(4)
 
@@ -309,8 +316,9 @@ def test_on_dataset(sess, ops, dataset, num_classes, mean_num_pts_in_group, save
         mPrec, mRecall, cov, wCov, errors_ins = metrics.instance_metrics(label, inst_pred)
         ins_metrics_sum += mPrec, mRecall, cov, wCov
         # Semantic metrics
-        oAcc, mAcc, mIoU, errors_sem = metrics.semantic_metrics(sem, sem_pred)
+        oAcc, mAcc, mIoU, accs, errors_sem = metrics.semantic_metrics(sem, sem_pred, num_classes)
         sem_metrics_sum += oAcc, mAcc, mIoU
+        sem_metrics_classbyclass += accs
 
         # save point cloud
         if save_folder != None:
@@ -322,6 +330,7 @@ def test_on_dataset(sess, ops, dataset, num_classes, mean_num_pts_in_group, save
             save_las(str(file_name), raw_data, errors_sem, errors_ins)
 
     sem_metrics = sem_metrics_sum / len(dataset)
+    sem_metrics_classbyclass = sem_metrics_classbyclass / len(dataset)
     ins_metrics = ins_metrics_sum / len(dataset)
     
     oAcc = sem_metrics[0]
@@ -332,7 +341,7 @@ def test_on_dataset(sess, ops, dataset, num_classes, mean_num_pts_in_group, save
     cov = ins_metrics[2]
     wCov = ins_metrics[3]
 
-    return oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov
+    return oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov, sem_metrics_classbyclass
 
 
 def pred_on_dataset(sess, ops, dataset, save_folder, num_classes, mean_num_pts_in_group, save_cubes=None, bandwidth=1):
@@ -368,8 +377,8 @@ def pred_on_dataset(sess, ops, dataset, save_folder, num_classes, mean_num_pts_i
         cur_data = raw_data - raw_data.reshape(-1,3).min(axis=0) # move min to 0,0,0
         range_xyz = cur_data.max()
         volume_num = int(range_xyz / gap) + 1
-        volume = -1 * np.ones([volume_num, volume_num, volume_num]).astype(np.int32)
-        volume_seg = -1 * np.ones([volume_num, volume_num, volume_num]).astype(np.int32)
+        volume = -1 * np.ones([volume_num, volume_num, volume_num], dtype='int32')
+        volume_seg = -1 * np.ones([volume_num, volume_num, volume_num], dtype='int32')
 
         # Split in batches
         for j in range(0, len(raw_data)):

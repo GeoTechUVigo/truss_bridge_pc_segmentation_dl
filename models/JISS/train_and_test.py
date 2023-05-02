@@ -33,6 +33,7 @@ from one_epoch_functions import val_one_epoch
 from one_epoch_functions import test_on_dataset
 from log_util import get_logger
 from load_las_data import GeneralDataset
+from utils.check_path import check_path
 #==============================================================================
 
 # Check GPU
@@ -102,19 +103,12 @@ NOISE_TRAIN_SIGMA = FLAGS.noise_train_sigma
 OVERLAP = FLAGS.overlap
 
 # CHECK PATHS
-LOG_DIR = pathlib.Path(LOG_DIR)
-MODELS_DIR = pathlib.Path(MODELS_DIR)
-DATASET_PATH = pathlib.Path(DATASET_PATH)
-PATH_VAL= pathlib.Path(PATH_VAL)
-PATH_TEST = pathlib.Path(PATH_TEST)
-PATH_ERRORS = pathlib.Path(PATH_ERRORS)
-
-if not LOG_DIR.is_dir(): raise ValueError("LOG_DIR {} does not exist.".format(str(LOG_DIR)))
-if not MODELS_DIR.is_dir(): raise ValueError("MODELS_DIR {} does not exist.".format(str(MODELS_DIR)))
-if not DATASET_PATH.is_dir(): raise ValueError("DATASET_PATH {} does not exist.".format(str(DATASET_PATH)))
-if not PATH_VAL.is_dir(): raise ValueError("PATH_VAL {} does not exist.".format(str(PATH_VAL)))
-if not PATH_TEST.is_dir(): raise ValueError("PATH_TEST {} does not exist.".format(str(PATH_TEST)))
-if not PATH_ERRORS.is_dir(): raise ValueError("PATH_ERRORS {} does not exist.".format(str(PATH_ERRORS)))
+LOG_DIR =check_path(LOG_DIR)
+MODELS_DIR = check_path(MODELS_DIR)
+DATASET_PATH = check_path(DATASET_PATH)
+PATH_VAL= check_path(PATH_VAL)
+PATH_TEST = check_path(PATH_TEST)
+PATH_ERRORS = check_path(PATH_ERRORS)
 
 #==============================================================================
 
@@ -221,9 +215,16 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
     #==================================================================================
     # K-fold cross validation
 
+    # CSV 
+    header = ["oAcc", "mAcc", "mIoU", "mPrec", "mRec", "cov", "wCov"]
+    for num in range(NUM_CLASSES):
+        header.append('acc_'+str(num))
+    header.append("k_fold")
+    header.append("model_path")
+    header.append(str(FLAGS))
+
     # CSV for saving test metrics
     test_metrics_path = LOG_DIR.joinpath('metrics_test.csv')
-    header = ["oAcc", "mAcc", "mIoU", "mPrec", "mRec", "cov", "wCov", "k_fold", "model_path",str(FLAGS)]
     with open(str(test_metrics_path), 'w') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(header)
@@ -231,7 +232,6 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
 
     # CSV for saving val metrics
     val_metrics_path = LOG_DIR.joinpath('metrics_val.csv')
-    header = ["oAcc", "mAcc", "mIoU", "mPrec", "mRec", "cov", "wCov", "epoch", "k_fold", str(FLAGS)]
     with open(str(val_metrics_path), 'w') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(header)
@@ -281,7 +281,7 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
             file_name = "val_" + str(epoch).zfill(len(str(MAX_EPOCH))) + ".las"
             file_name = val_point_clouds_path.joinpath(file_name)
             # Validation
-            loss_val, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov = val_one_epoch(sess, ops, val, BATCH_SIZE, file_name=file_name, bandwidth=BANDWIDTH)
+            loss_val, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov, accs = val_one_epoch(sess, ops, val, BATCH_SIZE, file_name=file_name, bandwidth=BANDWIDTH)
 
             # Save in logger
             logger.info('K:' + str(k) + ' ' +
@@ -294,9 +294,11 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
                 'mPrec: ' + np.array2string(mPrec,precision=5, separator=',') + ' ' +
                 'mRec: ' + np.array2string(mRec,precision=5, separator=',') + ' ' +
                 'cov: ' + np.array2string(cov,precision=5, separator=',') + ' ' +
-                'wCov: ' + np.array2string(wCov,precision=5) + ' ' + '\n')
+                'wCov: ' + np.array2string(wCov, precision=5) + ' ' +
+                'accs: ' + np.array2string(accs, precision=5) + '\n')
             
             metrics = np.array([oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov])
+            metrics = np.concatenate((metrics, accs))
 
             # Save in validation metrics
             with open(str(val_metrics_path), 'a') as csvfile:
@@ -341,10 +343,11 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
 
         # Test
         mean_num_pts_in_group = np.ones(NUM_CLASSES)
-        oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov = test_on_dataset(sess, ops, test, NUM_CLASSES, mean_num_pts_in_group, save_folder=save_folder, save_errors=save_errors_folder, bandwidth=BANDWIDTH)
+        oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov, accs = test_on_dataset(sess, ops, test, NUM_CLASSES, mean_num_pts_in_group, save_folder=save_folder, save_errors=save_errors_folder, bandwidth=BANDWIDTH)
 
         # Save in test metrics
         metrics = np.array([oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov])
+        metrics = np.concatenate((metrics, accs))
         with open(str(test_metrics_path), 'a') as csvfile:
             writer = csv.writer(csvfile)
             metrics_csv = ["{:0.{precision}f}".format(v, precision=DECIMALS) for v in metrics]

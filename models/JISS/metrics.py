@@ -13,7 +13,7 @@ import numpy as np
 from ismember import ismember
 
 
-def semantic_metrics(y_real: list, y_pred: list):
+def semantic_metrics(y_real: list, y_pred: list, num_classes):
     """
     Metrics for semantic segmentation evaluation. This function calculates
     overall Accuraty, mean Accuracy and mean Intersection over Union.
@@ -21,11 +21,12 @@ def semantic_metrics(y_real: list, y_pred: list):
 
     :param y_real: real values.
     :param y_pred: predicted values.
-    :return: oAcc, mAcc, mIoU, errors.
+    :param num_classes: number of semantic classes.
+    :returns: oAcc, mAcc, mIoU, accs, errors.
     """
 
     # confusion matrix
-    cm = metrics.confusion_matrix(y_real, y_pred)
+    cm = metrics.confusion_matrix(y_real, y_pred, labels=range(num_classes))
     # True positives
     n_classes = len(cm)
     tp = np.zeros(n_classes)
@@ -48,7 +49,7 @@ def semantic_metrics(y_real: list, y_pred: list):
     # errors
     errors = y_real != y_pred
 
-    return oAcc, mAcc, mIoU, errors
+    return oAcc, mAcc, mIoU, accs, errors
 
 
 def instance_metrics(y_real: list, y_pred: list, threashold:float = 0.5):
