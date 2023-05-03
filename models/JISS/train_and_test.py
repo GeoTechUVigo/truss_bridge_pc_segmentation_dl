@@ -166,13 +166,15 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
     pred_sem_softmax_nodes = pred_sem_softmax[...,IDX_NODE]
 
     # loss, sem_loss, disc_loss, l_var, l_dist = model.get_loss(pred_ins, labels_pl, pred_sem_label, pred_sem, sem_labels_pl)
-    loss, sem_loss, disc_loss = model.get_loss_nodes(pred_ins, labels_pl, pred_sem_label, pred_sem, sem_labels_pl, pointclouds_pl, IDX_NODE, pred_sem_softmax_nodes, RATE_NODE)
+    loss, sem_loss, disc_loss, box_loss, n_loss = model.get_loss_nodes(pred_ins, labels_pl, pred_sem_label, pred_sem, sem_labels_pl, pointclouds_pl, IDX_NODE, pred_sem_softmax_nodes, RATE_NODE)
 
     tf.summary.scalar('loss', loss)
     tf.summary.scalar('sem_loss', sem_loss)
     tf.summary.scalar('disc_loss', disc_loss)
     #tf.summary.scalar('l_var', l_var)
     #tf.summary.scalar('l_dist', l_dist)
+    tf.summary.scalar('box_loss', box_loss)
+    tf.summary.scalar('n_loss', n_loss)
 
     # Get training operator
     learning_rate = get_learning_rate(BASE_LEARNING_RATE, batch, DECAY_STEP, DECAY_RATE)
@@ -208,6 +210,8 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
             'disc_loss': disc_loss,
             #'l_var': l_var,
             #'l_dist': l_dist,
+            'box_loss': box_loss,
+            'n_loss': n_loss,
             'train_op': train_op,
             'merged': merged,
             'step': batch,
@@ -283,7 +287,7 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
         for epoch in range(START_EPOCH, MAX_EPOCH):
             
             #Train
-            loss_train, loss_sem, loss_dist = train_one_epoch(sess, ops, train, BATCH_SIZE)
+            loss_train, loss_sem, loss_dist, loss_box, loss_n = train_one_epoch(sess, ops, train, BATCH_SIZE)
 
             # Name for saving one cloud used in validation
             if PATH_VAL is not None:
@@ -299,8 +303,10 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
             logger.info('K:' + str(k) + ' ' +
                 'Epoch: ' + str(epoch) + ' ' + 
                 'Mean loss train: ' + str(loss_train) + ' ' +
-                'Mean loss sem: ' + str(loss_sem) + ' ' +
-                'Mean loss dist: ' + str(loss_dist) + ' ' + 
+                'Mean loss train sem: ' + str(loss_sem) + ' ' +
+                'Mean loss train dist: ' + str(loss_dist) + ' ' +
+                'Mean loss train box: ' + str(loss_box) + ' ' +
+                'Mean loss train n nodes: ' + str(loss_n) + ' ' + 
                 'Mean loss val: ' + str(loss_val) + ' ' + 
                 'oAcc: ' + np.array2string(oAcc,precision=5, separator=',') + ' ' +
                 'mAcc: ' + np.array2string(mAcc,precision=5, separator=',') + ' ' +

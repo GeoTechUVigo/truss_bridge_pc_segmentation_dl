@@ -48,6 +48,9 @@ def train_one_epoch(sess, ops, dataset, batch_size):
     loss_sum = 0
     loss_sem_sum = 0
     loss_dist_sum = 0
+    loss_box_sum = 0
+    loss_n_sum = 0
+
 
     for batch_idx in range(num_batches):
         # Load data
@@ -61,20 +64,24 @@ def train_one_epoch(sess, ops, dataset, batch_size):
         #    [ops['merged'], ops['step'], ops['learning_rate'], ops['train_op'], ops['loss'], ops['sem_loss'],
         #     ops['disc_loss'], ops['l_var'], ops['l_dist']], feed_dict=feed_dict)
 
-        summary, step, lr_rate, _, loss_val, sem_loss_val, disc_loss_val = sess.run(
+        summary, step, lr_rate, _, loss_val, sem_loss_val, disc_loss_val, box_los_val, n_loss_val = sess.run(
             [ops['merged'], ops['step'], ops['learning_rate'], ops['train_op'], ops['loss'], ops['sem_loss'],
-             ops['disc_loss']], feed_dict=feed_dict)
+             ops['disc_loss'], ops['box_loss'], ops['n_loss']], feed_dict=feed_dict)
 
         # train_writer.add_summary(summary, step)
         loss_sum += loss_val
         loss_sem_sum += sem_loss_val
         loss_dist_sum += disc_loss_val
+        loss_box_sum += box_los_val
+        loss_n_sum += n_loss_val
 
     loss_train = loss_sum / num_batches
     loss_sem_sum = loss_sem_sum / num_batches
     loss_dist_sum = loss_dist_sum / num_batches
+    loss_box_sum = loss_box_sum / num_batches
+    loss_n_sum = loss_n_sum / num_batches
 
-    return loss_train, loss_sem_sum, loss_dist_sum
+    return loss_train, loss_sem_sum, loss_dist_sum, loss_box_sum, loss_n_sum
 
 
 def val_one_epoch(sess, ops, dataset, batch_size, num_classes, file_name: str=None, bandwidth=1):

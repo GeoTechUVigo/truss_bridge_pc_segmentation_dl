@@ -158,8 +158,10 @@ def get_loss_nodes(pred, ins_label, pred_sem_label, pred_sem, sem_label, point_c
     dif_bounding_box_total = tf.reduce_mean(dif_bounding_box_total)
 
     # Number of points
-    n_nodes = tf.reduce_sum(tf.equal(pred_sem_label,idx_node))
-    n_nodes = tf.divide(n_nodes,tf.shape(pred_sem_label)[0])
+    n_nodes = tf.reduce_sum(tf.cast(tf.equal(pred_sem_label, idx_node), tf.int32))
+    n_nodes = tf.divide(n_nodes, tf.shape(pred_sem_label)[1])
+    n_nodes = tf.divide(n_nodes, tf.cast(tf.shape(pred_sem_label)[0], tf.float64))
+    n_nodes = tf.cast(n_nodes, tf.float32)
 
     n_nodes_low = tf.maximum(rate_node[0] - n_nodes, 0)
     n_nodes_up = tf.maximum(n_nodes - rate_node[1], 0)
@@ -167,7 +169,6 @@ def get_loss_nodes(pred, ins_label, pred_sem_label, pred_sem, sem_label, point_c
     n_nodes = tf.maximum(n_nodes_low, n_nodes_up)
     n_nodes = tf.exp(n_nodes)
 
-    
     node_loss = dif_bounding_box_total + n_nodes
 
     #===========================================================================
@@ -175,7 +176,7 @@ def get_loss_nodes(pred, ins_label, pred_sem_label, pred_sem, sem_label, point_c
 
     tf.add_to_collection('losses', loss)
 
-    return loss, classify_loss, node_loss
+    return loss, classify_loss, node_loss, dif_bounding_box_total, n_nodes
 
 if __name__ == '__main__':
     with tf.Graph().as_default():
