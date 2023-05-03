@@ -330,13 +330,13 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
                 csvfile.close()
 
             # Check if there is progress
-            if not cov > best_cov:
+            if not accs[IDX_NODE] > best_metric:
                 no_progress +=1
 
             # If there are progress
             else:
                 # Update variables
-                best_cov = cov
+                best_metric = cov
                 no_progress=0
                 # Save model
                 best_model_path = models_k_dir.joinpath('epoch_' + str(epoch).zfill(len(str(MAX_EPOCH))) + '.ckpt')
