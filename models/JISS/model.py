@@ -118,6 +118,55 @@ def get_loss(pred, ins_label, pred_sem_label, pred_sem, sem_label, weights=1.0, 
     return loss, classify_loss, disc_loss, l_var, l_dist
 
 
+def get_loss_nodes(pred, ins_label, pred_sem_label, pred_sem, sem_label, point_clouds, idx_node, pred_sem_softmax_nodes, weights=1.0, disc_weight=1.0):
+    """ pred:   BxNxE,
+        ins_label:  BxN
+        pred_sem_label: BxN
+        pred_sem: BxNx13
+        sem_label: BxN
+    """
+    classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=sem_label, logits=pred_sem, weights=weights)
+    tf.summary.scalar('classify loss', classify_loss)
+
+    # Adding a priori information of the nodes
+    # Bounding box
+    coord_pond = tf.multiply(tf.expand_dims(pred_sem_softmax_nodes,axis=-1), point_clouds)
+    sum_pond = tf.reduce_sum(pred_sem_softmax_nodes, axis=1)
+
+    x = tf.divide(tf.reduce_sum(coord_pond[...,0], axis=1), sum_pond)
+    y = tf.divide(tf.reduce_sum(coord_pond[...,1], axis=1), sum_pond)
+    z = tf.divide(tf.reduce_sum(coord_pond[...,2], axis=1), sum_pond)
+
+    dist_x = coord_pond[...,0] - tf.expand_dims(x, axis=1) 
+    dist_y = coord_pond[...,1] - tf.expand_dims(y, axis=1)
+    dist_z = coord_pond[...,2] - tf.expand_dims(z, axis=1)
+
+    dist_x = tf.reduce_max(dist_x, axis=1) - tf.reduce_min(dist_x, axis=1)
+    dist_y = tf.reduce_max(dist_y, axis=1) - tf.reduce_min(dist_y, axis=1)
+    dist_z = tf.reduce_max(dist_z, axis=1) - tf.reduce_min(dist_z, axis=1)
+
+    dist_x_gt = tf.reduce_max(point_clouds[...,0], axis=1) - tf.reduce_min(point_clouds[...,0], axis=1)
+    dist_y_gt = tf.reduce_max(point_clouds[...,1], axis=1) - tf.reduce_min(point_clouds[...,1], axis=1)
+    dist_z_gt = tf.reduce_max(point_clouds[...,2], axis=1) - tf.reduce_min(point_clouds[...,2], axis=1)
+
+    differences_x = tf.square(dist_x_gt - dist_x)
+    differences_y = tf.square(dist_y_gt - dist_y)
+    differences_z = tf.square(dist_z_gt - dist_z)
+
+    dif_bounding_box_total = differences_x + differences_y + differences_z
+    dif_bounding_box_total = tf.reduce_mean(dif_bounding_box_total)
+
+    # Number of points
+
+    
+    node_loss = dif_bounding_box_total
+
+    loss = classify_loss + node_loss
+
+    tf.add_to_collection('losses', loss)
+
+    return loss, classify_loss, node_loss
+
 if __name__ == '__main__':
     with tf.Graph().as_default():
         inputs = tf.zeros((32, 2048, 3))

@@ -233,7 +233,11 @@ class GeneralDataset():
 			semantic_seg = (inFile.Classification).astype(np.int32)
 			instance_seg = (inFile.user_data).astype(np.int32)
 			semantic_seg_nodes = (inFile.nodes).astype(np.int32)
+<<<<<<< HEAD
 			semantic_seg[semantic_seg_nodes==1] = semantic_seg.max()+1 # labels of nodes
+=======
+			semantic_seg[semantic_seg_nodes == 1] = semantic_seg.max() + 1  # labels of nodes
+>>>>>>> d01e4f8 (modify loss function)
 			
 			# Split the point cloud in cubes
 			indexes = self.__cubes_through_the_cloud(coordinates)

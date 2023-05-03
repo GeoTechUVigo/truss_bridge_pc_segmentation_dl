@@ -45,11 +45,11 @@ if not tf.test.is_gpu_available():
 # FLAGS
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
-parser.add_argument('--log_dir', type=str, default='data/logs', help='Log dir [default: logs]')
+parser.add_argument('--log_dir', type=str, default='data/data_loss_nodes/logs', help='Log dir [default: logs]')
 parser.add_argument('--num_point', type=int, default=4096, help='Point number [default: 16384]')
 parser.add_argument('--start_epoch', type=int, default=0, help='Epoch to run [default: 0]')
 parser.add_argument('--max_epoch', type=int, default=2, help='Epoch to run [default: 100]')
-parser.add_argument('--batch_size', type=int, default=1, help='Batch Size during training [default: 2]')
+parser.add_argument('--batch_size', type=int, default=2, help='Batch Size during training [default: 2]')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
 parser.add_argument('--optimizer', type=str, default='adam', help='adam or momentum [default: adam]')
@@ -61,18 +61,19 @@ parser.add_argument('--k_fold', type=int, default=5, help='Numbers of folds for 
 parser.add_argument('--seed', type=int, default=10, help='Seed for pseudorandom processes [default: 10]')
 parser.add_argument('--cube_size', type=float, default=10.0, help='Size of the cube of subclouds [default: 10.0]')
 parser.add_argument('--num_dims', type=int, default=3, help='Number of dimensions of the point cloud [default: 3 (xyz)]')
-parser.add_argument('--num_classes', type=int, default=2, help='Number os semantic classes [default: 4]')
+parser.add_argument('--num_classes', type=int, default=5, help='Number os semantic classes [default: 4]')
 parser.add_argument('--verbose', type=bool, default=True, help='Verbose mode [default: True]')
 parser.add_argument('--bandwidth', type=float, default=0.6, help='Bandwidth for meanshift clustering [default: 0.6]')
 parser.add_argument('--early_stopping', type=float, default=10, help='Max number of epochs without progress [default: 10]')
 parser.add_argument('--decimals', type=float, default=4, help='Number of decimals to save the metrics [default: 4]')
-parser.add_argument('--dataset_path', type=str, default='data/synthetic_point_clouds', help='Path of the dataset')
-parser.add_argument('--path_test', type=str, default='data/test', help='Folder to save test point clouds [default: test]')
-parser.add_argument('--path_errors', type=str, default='data/errors', help='Folder to save errors in tested point clouds [default: errors]')
-parser.add_argument('--path_val', type=str, default='data/validation', help='Folder to save validation point clouds [default: validation]')
-parser.add_argument('--models_dir', type=str, default='data/trained_models', help='Log dir [default: data/trained_models]')
+parser.add_argument('--models_dir', type=str, default='data/data_loss_nodes/trained_models', help='Log dir [default: data/trained_models]')
 parser.add_argument('--noise_train_sigma', type=float, default=0.01, help='Standar deviation of the normal distribution used to augment train data [default: 0.01]')
 parser.add_argument('--overlap', type=float, default=1.0, help='Overlap between cubes [default: 1.0]')
+parser.add_argument('--idx_node', type=float, default=4, help='Semantic index of node points[default: 4]')
+parser.add_argument('--dataset_path', type=str, default='data/data_loss_nodes/synthetic_point_clouds', help='Path of the dataset')
+parser.add_argument('--path_test', type=str, default='data/data_loss_nodes/test', help='Folder to save test point clouds [default: test]')
+parser.add_argument('--path_errors', type=str, default='data/data_loss_nodes/errors', help='Folder to save errors in tested point clouds [default: errors]')
+parser.add_argument('--path_val', type=str, default=None, help='Folder to save validation point clouds [default: None]')
 
 FLAGS = parser.parse_args()
 
@@ -100,7 +101,8 @@ DECIMALS = FLAGS.decimals
 LOG_DIR = FLAGS.log_dir
 MODELS_DIR = FLAGS.models_dir
 NOISE_TRAIN_SIGMA = FLAGS.noise_train_sigma
-OVERLAP = FLAGS.overlap
+OVERLAP=FLAGS.overlap
+IDX_NODE = FLAGS.idx_node
 
 # CHECK PATHS
 LOG_DIR =check_path(LOG_DIR)
@@ -159,14 +161,16 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
     pred_sem, pred_ins = model.get_model(pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
     pred_sem_softmax = tf.nn.softmax(pred_sem)
     pred_sem_label = tf.argmax(pred_sem_softmax, axis=2)
+    pred_sem_softmax_nodes = pred_sem_softmax[...,IDX_NODE]
 
-    loss, sem_loss, disc_loss, l_var, l_dist = model.get_loss(pred_ins, labels_pl, pred_sem_label, pred_sem, sem_labels_pl)
+    # loss, sem_loss, disc_loss, l_var, l_dist = model.get_loss(pred_ins, labels_pl, pred_sem_label, pred_sem, sem_labels_pl)
+    loss, sem_loss, disc_loss = model.get_loss_nodes(pred_ins, labels_pl, pred_sem_label, pred_sem, sem_labels_pl, pointclouds_pl, IDX_NODE, pred_sem_softmax_nodes)
 
     tf.summary.scalar('loss', loss)
     tf.summary.scalar('sem_loss', sem_loss)
     tf.summary.scalar('disc_loss', disc_loss)
-    tf.summary.scalar('l_var', l_var)
-    tf.summary.scalar('l_dist', l_dist)
+    #tf.summary.scalar('l_var', l_var)
+    #tf.summary.scalar('l_dist', l_dist)
 
     # Get training operator
     learning_rate = get_learning_rate(BASE_LEARNING_RATE, batch, DECAY_STEP, DECAY_RATE)
@@ -200,8 +204,8 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
             'loss': loss,
             'sem_loss': sem_loss,
             'disc_loss': disc_loss,
-            'l_var': l_var,
-            'l_dist': l_dist,
+            #'l_var': l_var,
+            #'l_dist': l_dist,
             'train_op': train_op,
             'merged': merged,
             'step': batch,
@@ -216,23 +220,24 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
     # K-fold cross validation
 
     # CSV 
-    header = ["oAcc", "mAcc", "mIoU", "mPrec", "mRec", "cov", "wCov"]
+    header = ["loss", "oAcc", "mAcc", "mIoU", "mPrec", "mRec", "cov", "wCov"]
     for num in range(NUM_CLASSES):
         header.append('acc_'+str(num))
     header.append("k_fold")
     header.append("model_path")
     header.append(str(FLAGS))
 
-    # CSV for saving test metrics
-    test_metrics_path = LOG_DIR.joinpath('metrics_test.csv')
-    with open(str(test_metrics_path), 'w') as csvfile:
+    # CSV for saving val metrics
+    val_metrics_path = LOG_DIR.joinpath('metrics_val.csv')
+    with open(str(val_metrics_path), 'w') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(header)
         csvfile.close()
 
-    # CSV for saving val metrics
-    val_metrics_path = LOG_DIR.joinpath('metrics_val.csv')
-    with open(str(val_metrics_path), 'w') as csvfile:
+    # CSV for saving test metrics
+    header.remove("loss")
+    test_metrics_path = LOG_DIR.joinpath('metrics_test.csv')
+    with open(str(test_metrics_path), 'w') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(header)
         csvfile.close()
@@ -265,8 +270,9 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
         no_progress = 0
 
         # Folder for saving point clouds of validation
-        val_point_clouds_path = PATH_VAL.joinpath('k_' + str(k))
-        val_point_clouds_path.mkdir(exist_ok=True)
+        if PATH_VAL is not None:
+            val_point_clouds_path = PATH_VAL.joinpath('k_' + str(k))
+            val_point_clouds_path.mkdir(exist_ok=True)
 
         # Folder for saving the models
         models_k_dir = MODELS_DIR.joinpath('k_' + str(k))
@@ -275,18 +281,24 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
         for epoch in range(START_EPOCH, MAX_EPOCH):
             
             #Train
-            loss_train = train_one_epoch(sess, ops, train, BATCH_SIZE)
+            loss_train, loss_sem, loss_dist = train_one_epoch(sess, ops, train, BATCH_SIZE)
 
             # Name for saving one cloud used in validation
-            file_name = "val_" + str(epoch).zfill(len(str(MAX_EPOCH))) + ".las"
-            file_name = val_point_clouds_path.joinpath(file_name)
+            if PATH_VAL is not None:
+                file_name = "val_" + str(epoch).zfill(len(str(MAX_EPOCH))) + ".las"
+                file_name = val_point_clouds_path.joinpath(file_name)
+            else:
+                file_name = None
+
             # Validation
             loss_val, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov, accs = val_one_epoch(sess, ops, val, BATCH_SIZE, file_name=file_name, bandwidth=BANDWIDTH)
 
             # Save in logger
             logger.info('K:' + str(k) + ' ' +
                 'Epoch: ' + str(epoch) + ' ' + 
-                'Mean loss train: ' + str(loss_train) + ' ' + 
+                'Mean loss train: ' + str(loss_train) + ' ' +
+                'Mean loss sem: ' + str(loss_sem) + ' ' +
+                'Mean loss dist: ' + str(loss_dist) + ' ' + 
                 'Mean loss val: ' + str(loss_val) + ' ' + 
                 'oAcc: ' + np.array2string(oAcc,precision=5, separator=',') + ' ' +
                 'mAcc: ' + np.array2string(mAcc,precision=5, separator=',') + ' ' +
@@ -297,7 +309,7 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
                 'wCov: ' + np.array2string(wCov, precision=5) + ' ' +
                 'accs: ' + np.array2string(accs, precision=5) + '\n')
             
-            metrics = np.array([oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov])
+            metrics = np.array([loss_val, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov])
             metrics = np.concatenate((metrics, accs))
 
             # Save in validation metrics
@@ -336,10 +348,17 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
         test = GeneralDataset(files=input_las[test], num_dims=NUM_DIMS, cube_size=CUBE_SIZE, npoints=NUM_POINT, overlap=OVERLAP, split='test', seed=SEED)
 
         # Folder for saving the point clouds
-        save_folder = pathlib.Path(PATH_TEST).joinpath('k_' + str(k))
-        save_folder.mkdir(exist_ok=True)
-        save_errors_folder = pathlib.Path(PATH_ERRORS).joinpath('k_' + str(k))
-        save_errors_folder.mkdir(exist_ok=True)
+        if PATH_TEST is not None:
+            save_folder = pathlib.Path(PATH_TEST).joinpath('k_' + str(k))
+            save_folder.mkdir(exist_ok=True)
+        else:
+            save_folder=None
+
+        if PATH_ERRORS is not None:
+            save_errors_folder = pathlib.Path(PATH_ERRORS).joinpath('k_' + str(k))
+            save_errors_folder.mkdir(exist_ok=True)
+        else:
+            save_errors_folder=None
 
         # Test
         mean_num_pts_in_group = np.ones(NUM_CLASSES)
