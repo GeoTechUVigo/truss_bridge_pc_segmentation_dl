@@ -70,6 +70,7 @@ parser.add_argument('--models_dir', type=str, default='data/data_loss_nodes/trai
 parser.add_argument('--noise_train_sigma', type=float, default=0.01, help='Standar deviation of the normal distribution used to augment train data [default: 0.01]')
 parser.add_argument('--overlap', type=float, default=1.0, help='Overlap between cubes [default: 1.0]')
 parser.add_argument('--idx_node', type=float, default=4, help='Semantic index of node points[default: 4]')
+parser.add_argument('--rate_node', type=list, default=[0.002, 0.07], help='Semantic index of node points[default: 4]')
 parser.add_argument('--dataset_path', type=str, default='data/data_loss_nodes/synthetic_point_clouds', help='Path of the dataset')
 parser.add_argument('--path_test', type=str, default='data/data_loss_nodes/test', help='Folder to save test point clouds [default: test]')
 parser.add_argument('--path_errors', type=str, default='data/data_loss_nodes/errors', help='Folder to save errors in tested point clouds [default: errors]')
@@ -103,6 +104,7 @@ MODELS_DIR = FLAGS.models_dir
 NOISE_TRAIN_SIGMA = FLAGS.noise_train_sigma
 OVERLAP=FLAGS.overlap
 IDX_NODE = FLAGS.idx_node
+RATE_NODE = FLAGS.rate_node
 
 # CHECK PATHS
 LOG_DIR =check_path(LOG_DIR)
@@ -164,7 +166,7 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
     pred_sem_softmax_nodes = pred_sem_softmax[...,IDX_NODE]
 
     # loss, sem_loss, disc_loss, l_var, l_dist = model.get_loss(pred_ins, labels_pl, pred_sem_label, pred_sem, sem_labels_pl)
-    loss, sem_loss, disc_loss = model.get_loss_nodes(pred_ins, labels_pl, pred_sem_label, pred_sem, sem_labels_pl, pointclouds_pl, IDX_NODE, pred_sem_softmax_nodes)
+    loss, sem_loss, disc_loss = model.get_loss_nodes(pred_ins, labels_pl, pred_sem_label, pred_sem, sem_labels_pl, pointclouds_pl, IDX_NODE, pred_sem_softmax_nodes, RATE_NODE)
 
     tf.summary.scalar('loss', loss)
     tf.summary.scalar('sem_loss', sem_loss)

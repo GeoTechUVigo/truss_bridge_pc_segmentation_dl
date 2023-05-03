@@ -118,7 +118,7 @@ def get_loss(pred, ins_label, pred_sem_label, pred_sem, sem_label, weights=1.0, 
     return loss, classify_loss, disc_loss, l_var, l_dist
 
 
-def get_loss_nodes(pred, ins_label, pred_sem_label, pred_sem, sem_label, point_clouds, idx_node, pred_sem_softmax_nodes, weights=1.0, disc_weight=1.0):
+def get_loss_nodes(pred, ins_label, pred_sem_label, pred_sem, sem_label, point_clouds, idx_node, pred_sem_softmax_nodes, rate_node, weights=1.0, disc_weight=1.0):
     """ pred:   BxNxE,
         ins_label:  BxN
         pred_sem_label: BxN
@@ -128,6 +128,7 @@ def get_loss_nodes(pred, ins_label, pred_sem_label, pred_sem, sem_label, point_c
     classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=sem_label, logits=pred_sem, weights=weights)
     tf.summary.scalar('classify loss', classify_loss)
 
+    #===============================================================================================================
     # Adding a priori information of the nodes
     # Bounding box
     coord_pond = tf.multiply(tf.expand_dims(pred_sem_softmax_nodes,axis=-1), point_clouds)
@@ -157,10 +158,19 @@ def get_loss_nodes(pred, ins_label, pred_sem_label, pred_sem, sem_label, point_c
     dif_bounding_box_total = tf.reduce_mean(dif_bounding_box_total)
 
     # Number of points
+    n_nodes = tf.reduce_sum(tf.equal(pred_sem_label,idx_node))
+    n_nodes = tf.divide(n_nodes,tf.shape(pred_sem_label)[0])
+
+    n_nodes_low = tf.maximum(rate_node[0] - n_nodes, 0)
+    n_nodes_up = tf.maximum(n_nodes - rate_node[1], 0)
+
+    n_nodes = tf.maximum(n_nodes_low, n_nodes_up)
+    n_nodes = tf.exp(n_nodes)
 
     
-    node_loss = dif_bounding_box_total
+    node_loss = dif_bounding_box_total + n_nodes
 
+    #===========================================================================
     loss = classify_loss + node_loss
 
     tf.add_to_collection('losses', loss)
