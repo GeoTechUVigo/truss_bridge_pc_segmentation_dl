@@ -272,7 +272,7 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
         sess.run(adam_initializers)
 
         # old_metrics_epoch = np.zeros(7)
-        best_cov = 0
+        best_metric = 0
         no_progress = 0
 
         # Folder for saving point clouds of validation
@@ -330,13 +330,14 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
                 csvfile.close()
 
             # Check if there is progress
-            if not accs[IDX_NODE] > best_metric:
+            check_metric = accs[IDX_NODE]
+            if not check_metric > best_metric:
                 no_progress +=1
 
             # If there are progress
             else:
                 # Update variables
-                best_metric = cov
+                best_metric = check_metric
                 no_progress=0
                 # Save model
                 best_model_path = models_k_dir.joinpath('epoch_' + str(epoch).zfill(len(str(MAX_EPOCH))) + '.ckpt')
