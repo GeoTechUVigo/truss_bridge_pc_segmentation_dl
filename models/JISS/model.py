@@ -167,7 +167,7 @@ def get_loss_nodes(pred, ins_label, pred_sem_label, pred_sem, sem_label, point_c
     n_nodes_up = tf.maximum(n_nodes - rate_node[1], 0)
 
     n_nodes = tf.maximum(n_nodes_low, n_nodes_up)
-    n_nodes = tf.exp(n_nodes)
+    n_nodes = tf.square(n_nodes)
 
     node_loss = dif_bounding_box_total + n_nodes
 

@@ -64,13 +64,14 @@ parser.add_argument('--num_dims', type=int, default=3, help='Number of dimension
 parser.add_argument('--num_classes', type=int, default=5, help='Number os semantic classes [default: 4]')
 parser.add_argument('--verbose', type=bool, default=True, help='Verbose mode [default: True]')
 parser.add_argument('--bandwidth', type=float, default=0.6, help='Bandwidth for meanshift clustering [default: 0.6]')
-parser.add_argument('--early_stopping', type=float, default=10, help='Max number of epochs without progress [default: 10]')
+parser.add_argument('--early_stopping', type=int, default=10, help='Max number of epochs without progress [default: 10]')
 parser.add_argument('--decimals', type=float, default=4, help='Number of decimals to save the metrics [default: 4]')
 parser.add_argument('--models_dir', type=str, default='data/data_loss_nodes/trained_models', help='Log dir [default: data/trained_models]')
 parser.add_argument('--noise_train_sigma', type=float, default=0.01, help='Standar deviation of the normal distribution used to augment train data [default: 0.01]')
 parser.add_argument('--overlap', type=float, default=1.0, help='Overlap between cubes [default: 1.0]')
-parser.add_argument('--idx_node', type=float, default=4, help='Semantic index of node points[default: 4]')
-parser.add_argument('--rate_node', type=list, default=[0.002, 0.07], help='Semantic index of node points[default: 4]')
+parser.add_argument('--idx_node', type=int, default=4, help='Semantic index of node points[default: 4]')
+parser.add_argument('--rate_node_min', type=float, default=0.002, help='Loss parameter. Minimum and maximum rate of nodes/points: 0.002]')
+parser.add_argument('--rate_node_max', type=float, default=0.07, help='Loss parameter. Maximum and maximum rate of nodes/points: 0.07]')
 parser.add_argument('--dataset_path', type=str, default='data/data_loss_nodes/synthetic_point_clouds', help='Path of the dataset')
 parser.add_argument('--path_test', type=str, default='data/data_loss_nodes/test', help='Folder to save test point clouds [default: test]')
 parser.add_argument('--path_errors', type=str, default='data/data_loss_nodes/errors', help='Folder to save errors in tested point clouds [default: errors]')
@@ -104,7 +105,9 @@ MODELS_DIR = FLAGS.models_dir
 NOISE_TRAIN_SIGMA = FLAGS.noise_train_sigma
 OVERLAP=FLAGS.overlap
 IDX_NODE = FLAGS.idx_node
-RATE_NODE = FLAGS.rate_node
+RATE_NODE_MIN = FLAGS.rate_node_min
+RATE_NODE_MAX = FLAGS.rate_node_min
+RATE_NODE = [RATE_NODE_MIN, RATE_NODE_MAX]
 
 # CHECK PATHS
 LOG_DIR =check_path(LOG_DIR)
