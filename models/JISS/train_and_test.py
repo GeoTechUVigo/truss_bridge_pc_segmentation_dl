@@ -300,7 +300,7 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
                 file_name = None
 
             # Validation
-            loss_val, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov, accs = val_one_epoch(sess, ops, val, BATCH_SIZE, file_name=file_name, bandwidth=BANDWIDTH)
+            loss_val, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov, accs = val_one_epoch(sess, ops, val, BATCH_SIZE, NUM_CLASSES, file_name=file_name, bandwidth=BANDWIDTH)
 
             # Save in logger
             logger.info('K:' + str(k) + ' ' +
