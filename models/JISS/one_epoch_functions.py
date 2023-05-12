@@ -122,6 +122,11 @@ def val_one_epoch(sess, ops, dataset, batch_size, num_classes, file_name: str=No
 
     # Variables to calculate the metrics. One for each class in segmentation.
     loss_sum = 0
+    loss_sem_sum = 0
+    loss_dist_sum = 0
+    loss_box_sum = 0
+    loss_n_sum = 0
+
     # Semantic: oAcc, mAcc and mIoU
     sem_metrics_sum = np.zeros(3)
     # accuracy of each class
