@@ -140,11 +140,16 @@ def val_one_epoch(sess, ops, dataset, batch_size, num_classes, file_name: str=No
                      ops['is_training_pl']: is_training}
 
         # Prediction
-        pred_ins_val, pred_sem_label_val, loss_val = sess.run(
-            [ops['pred_ins'], ops['pred_sem_label'], ops['loss']], feed_dict=feed_dict)
+        pred_ins_val, pred_sem_label_val, loss_val, sem_loss_val, disc_loss_val, box_los_val, n_loss_val = sess.run(
+            [ops['pred_ins'], ops['pred_sem_label'], ops['loss'], ops['sem_loss'], ops['disc_loss'], ops['box_loss'], 
+             ops['n_loss']], feed_dict=feed_dict)
 
-        #Loss
+        # Loss
         loss_sum += loss_val
+        loss_sem_sum += sem_loss_val
+        loss_dist_sum += disc_loss_val
+        loss_box_sum += box_los_val
+        loss_n_sum += n_loss_val
 
         # Semantic metrics
         oAcc, mAcc, mIoU, accs, _ = metrics.semantic_metrics(current_sem.reshape(-1), pred_sem_label_val.reshape(-1), num_classes)
@@ -166,8 +171,13 @@ def val_one_epoch(sess, ops, dataset, batch_size, num_classes, file_name: str=No
                 save_las(file_name, raw_data[i], pred_sem_label_val[i], groupids)
 
                 save = False
-            
+
     loss_val = loss_sum / num_batches
+    loss_sem = loss_sem_sum / num_batches
+    loss_dist = loss_dist_sum / num_batches
+    loss_box = loss_box_sum / num_batches
+    loss_n = loss_n_sum / num_batches
+
     sem_metrics = sem_metrics_sum / num_batches
     sem_metrics_classbyclass = sem_metrics_classbyclass / len(dataset)
     ins_metrics = ins_metrics_sum / (num_batches*batch_size)
@@ -180,7 +190,7 @@ def val_one_epoch(sess, ops, dataset, batch_size, num_classes, file_name: str=No
     cov = ins_metrics[2]
     wCov = ins_metrics[3]
 
-    return loss_val, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov, sem_metrics_classbyclass
+    return loss_val, loss_sem, loss_dist, loss_box, loss_n, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov, sem_metrics_classbyclass
 
 
 def test_on_dataset(sess, ops, dataset, num_classes, mean_num_pts_in_group, save_folder=None, save_cubes=None, save_errors=None, bandwidth=1):

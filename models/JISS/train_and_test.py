@@ -228,8 +228,8 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
     #==================================================================================
     # K-fold cross validation
 
-    # CSV 
-    header = ["loss", "oAcc", "mAcc", "mIoU", "mPrec", "mRec", "cov", "wCov"]
+    # CSV
+    header = ["loss", "sem_loss", "dist_loss", "box_loss", "n_nodes_loss", "oAcc", "mAcc", "mIoU", "mPrec", "mRec", "cov", "wCov"]
     for num in range(NUM_CLASSES):
         header.append('acc_'+str(num))
     header.append("k_fold")
@@ -245,6 +245,10 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
 
     # CSV for saving test metrics
     header.remove("loss")
+    header.remove("sem_loss")
+    header.remove("dist_loss")
+    header.remove("box_loss")
+    header.remove("n_nodes_loss")
     test_metrics_path = LOG_DIR.joinpath('metrics_test.csv')
     with open(str(test_metrics_path), 'w') as csvfile:
         writer = csv.writer(csvfile)
@@ -290,7 +294,7 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
         for epoch in range(START_EPOCH, MAX_EPOCH):
             
             #Train
-            loss_train, loss_sem, loss_dist, loss_box, loss_n = train_one_epoch(sess, ops, train, BATCH_SIZE)
+            loss_train, _, _, _, _ = train_one_epoch(sess, ops, train, BATCH_SIZE)
 
             # Name for saving one cloud used in validation
             if PATH_VAL is not None:
@@ -300,27 +304,28 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
                 file_name = None
 
             # Validation
-            loss_val, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov, accs = val_one_epoch(sess, ops, val, BATCH_SIZE, NUM_CLASSES, file_name=file_name, bandwidth=BANDWIDTH)
+            loss_val, loss_sem, loss_dist, loss_box, loss_n, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov, accs = val_one_epoch(
+                sess, ops, val, BATCH_SIZE, NUM_CLASSES, file_name=file_name, bandwidth=BANDWIDTH)
 
             # Save in logger
             logger.info('K:' + str(k) + ' ' +
                 'Epoch: ' + str(epoch) + ' ' + 
-                'Mean loss train: ' + str(loss_train) + ' ' +
-                'Mean loss train sem: ' + str(loss_sem) + ' ' +
-                'Mean loss train dist: ' + str(loss_dist) + ' ' +
-                'Mean loss train box: ' + str(loss_box) + ' ' +
-                'Mean loss train n nodes: ' + str(loss_n) + ' ' + 
-                'Mean loss val: ' + str(loss_val) + ' ' + 
-                'oAcc: ' + np.array2string(oAcc,precision=5, separator=',') + ' ' +
-                'mAcc: ' + np.array2string(mAcc,precision=5, separator=',') + ' ' +
-                'mIoU: ' + np.array2string(mIoU,precision=5, separator=',') + ' ' +
-                'mPrec: ' + np.array2string(mPrec,precision=5, separator=',') + ' ' +
-                'mRec: ' + np.array2string(mRec,precision=5, separator=',') + ' ' +
-                'cov: ' + np.array2string(cov,precision=5, separator=',') + ' ' +
+                'Mean loss train: ' + np.array2string(loss_train, precision=5, separator=',') + ' ' +
+                'Mean loss val: ' + np.array2string(loss_val, precision=5, separator=',') + ' ' + 
+                'Mean loss val sem: ' + np.array2string(loss_sem, precision=5, separator=',') + ' ' +
+                'Mean loss val dist: ' + np.array2string(loss_dist, precision=5, separator=',') + ' ' +
+                'Mean loss val box: ' + np.array2string(loss_box, precision=5, separator=',') + ' ' +
+                'Mean loss val n nodes: ' + np.array2string(loss_n, precision=5, separator=',') + ' ' + 
+                'oAcc: ' + np.array2string(oAcc, precision=5, separator=',') + ' ' +
+                'mAcc: ' + np.array2string(mAcc, precision=5, separator=',') + ' ' +
+                'mIoU: ' + np.array2string(mIoU, precision=5, separator=',') + ' ' +
+                'mPrec: ' + np.array2string(mPrec, precision=5, separator=',') + ' ' +
+                'mRec: ' + np.array2string(mRec, precision=5, separator=',') + ' ' +
+                'cov: ' + np.array2string(cov, precision=5, separator=',') + ' ' +
                 'wCov: ' + np.array2string(wCov, precision=5) + ' ' +
                 'accs: ' + np.array2string(accs, precision=5) + '\n')
             
-            metrics = np.array([loss_val, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov])
+            metrics = np.array([loss_val, loss_sem, loss_dist, loss_box, loss_n, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov])
             metrics = np.concatenate((metrics, accs))
 
             # Save in validation metrics
