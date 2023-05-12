@@ -64,7 +64,7 @@ class GeneralDataset():
 		# From those points, pick self.npoints randomly.
 		if np.isnan(n_points): return idx_in_cube
 
-		if len(coordinates) >= n_points:
+		if len(idx_in_cube) >= n_points:
 			choice = self.np_RandomState.choice(len(idx_in_cube), n_points, replace=False)
 		else:
 			choice = self.np_RandomState.choice(len(idx_in_cube), n_points, replace=True)
