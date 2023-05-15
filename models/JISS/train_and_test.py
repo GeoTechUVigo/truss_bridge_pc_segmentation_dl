@@ -357,6 +357,26 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
         #==============================================================================
         # TEST
 
+        # CONFIGURE MODEL ARCHITECTURE
+        # Create placeholders
+        BATCH_SIZE = 1 # required for testing
+        pointclouds_pl, labels_pl, sem_labels_pl = model.placeholder_inputs(BATCH_SIZE, NUM_POINT, NUM_DIMS)
+        is_training_pl = False
+
+        # Get model
+        pred_sem, pred_ins = model.get_model(pointclouds_pl, is_training_pl, NUM_CLASSES)
+        pred_sem_softmax = tf.nn.softmax(pred_sem)
+        pred_sem_label = tf.argmax(pred_sem_softmax, axis=2)
+        pred_sem_softmax_nodes = pred_sem_softmax[...,IDX_NODE]
+
+        ops = {'pointclouds_pl': pointclouds_pl,
+            'labels_pl': labels_pl,
+            'sem_labels_pl': sem_labels_pl,
+            'is_training_pl': is_training_pl,
+            'pred_ins': pred_ins,
+            'pred_sem_label': pred_sem_label,
+            'pred_sem_softmax': pred_sem_softmax}
+        
         # Load best model
         loader = tf.train.Saver()
         loader.restore(sess, str(best_model_path))
