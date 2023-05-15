@@ -184,7 +184,7 @@ def val_one_epoch(sess, ops, dataset, batch_size, num_classes, file_name: str=No
     loss_n = loss_n_sum / num_batches
 
     sem_metrics = sem_metrics_sum / num_batches
-    sem_metrics_classbyclass = sem_metrics_classbyclass / len(dataset)
+    sem_metrics_classbyclass = sem_metrics_classbyclass / num_batches
     ins_metrics = ins_metrics_sum / (num_batches*batch_size)
     
     oAcc = sem_metrics[0]

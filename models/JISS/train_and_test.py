@@ -76,6 +76,7 @@ parser.add_argument('--dataset_path', type=str, default='data/data_loss_nodes/sy
 parser.add_argument('--path_test', type=str, default='data/data_loss_nodes/test', help='Folder to save test point clouds [default: test]')
 parser.add_argument('--path_errors', type=str, default='data/data_loss_nodes/errors', help='Folder to save errors in tested point clouds [default: errors]')
 parser.add_argument('--path_val', type=str, default=None, help='Folder to save validation point clouds [default: None]')
+parser.add_argument('--train_test_idx', type=str, default='data/data_loss_nodes/kfold', help='Folder to save the indexes to split train and test for each k fold in .npy [default: None]')
 
 FLAGS = parser.parse_args()
 
@@ -108,6 +109,7 @@ IDX_NODE = FLAGS.idx_node
 RATE_NODE_MIN = FLAGS.rate_node_min
 RATE_NODE_MAX = FLAGS.rate_node_min
 RATE_NODE = [RATE_NODE_MIN, RATE_NODE_MAX]
+TRAIN_TEST_IDX = FLAGS.train_test_idx
 
 # CHECK PATHS
 LOG_DIR =check_path(LOG_DIR)
@@ -115,8 +117,8 @@ MODELS_DIR = check_path(MODELS_DIR)
 DATASET_PATH = check_path(DATASET_PATH)
 PATH_VAL= check_path(PATH_VAL)
 PATH_TEST = check_path(PATH_TEST)
-PATH_ERRORS = check_path(PATH_ERRORS)
-
+PATH_ERRORS=check_path(PATH_ERRORS)
+TRAIN_TEST_IDX = check_path(TRAIN_TEST_IDX)
 #==============================================================================
 
 # Hiperparametres
@@ -243,21 +245,12 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
         writer.writerow(header)
         csvfile.close()
 
-    # CSV for saving test metrics
-    header.remove("loss")
-    header.remove("sem_loss")
-    header.remove("dist_loss")
-    header.remove("box_loss")
-    header.remove("n_nodes_loss")
-    test_metrics_path = LOG_DIR.joinpath('metrics_test.csv')
-    with open(str(test_metrics_path), 'w') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(header)
-        csvfile.close()
-
     k=0
     kfold = KFold(n_splits=K_FOLD, shuffle=True, random_state=SEED)
     for train, test in kfold.split(input_las):
+
+        # save train and test indexes
+        np.save(str(TRAIN_TEST_IDX.joinpath(str(k))), test)
 
         # Add ops to save and restore all the variables.
         saver = tf.train.Saver(max_to_keep=1)
@@ -355,62 +348,3 @@ with tf.Graph().as_default(), tf.device('/gpu:'+str(GPU_INDEX)):
             if no_progress>=EARLY_STOPPING: break
         
         #==============================================================================
-        # TEST
-
-        # CONFIGURE MODEL ARCHITECTURE
-        # Create placeholders
-        BATCH_SIZE = 1 # required for testing
-        pointclouds_pl, labels_pl, sem_labels_pl = model.placeholder_inputs(BATCH_SIZE, NUM_POINT, NUM_DIMS)
-        is_training_pl = False
-
-        # Get model
-        pred_sem, pred_ins = model.get_model(pointclouds_pl, is_training_pl, NUM_CLASSES)
-        pred_sem_softmax = tf.nn.softmax(pred_sem)
-        pred_sem_label = tf.argmax(pred_sem_softmax, axis=2)
-        pred_sem_softmax_nodes = pred_sem_softmax[...,IDX_NODE]
-
-        ops = {'pointclouds_pl': pointclouds_pl,
-            'labels_pl': labels_pl,
-            'sem_labels_pl': sem_labels_pl,
-            'is_training_pl': is_training_pl,
-            'pred_ins': pred_ins,
-            'pred_sem_label': pred_sem_label,
-            'pred_sem_softmax': pred_sem_softmax}
-        
-        # Load best model
-        loader = tf.train.Saver()
-        loader.restore(sess, str(best_model_path))
-
-        # Dataset
-        test = GeneralDataset(files=input_las[test], num_dims=NUM_DIMS, cube_size=CUBE_SIZE, npoints=NUM_POINT, overlap=OVERLAP, split='test', seed=SEED)
-
-        # Folder for saving the point clouds
-        if PATH_TEST is not None:
-            save_folder = pathlib.Path(PATH_TEST).joinpath('k_' + str(k))
-            save_folder.mkdir(exist_ok=True)
-        else:
-            save_folder=None
-
-        if PATH_ERRORS is not None:
-            save_errors_folder = pathlib.Path(PATH_ERRORS).joinpath('k_' + str(k))
-            save_errors_folder.mkdir(exist_ok=True)
-        else:
-            save_errors_folder=None
-
-        # Test
-        mean_num_pts_in_group = np.ones(NUM_CLASSES)
-        oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov, accs = test_on_dataset(sess, ops, test, NUM_CLASSES, mean_num_pts_in_group, save_folder=save_folder, save_errors=save_errors_folder, bandwidth=BANDWIDTH)
-
-        # Save in test metrics
-        metrics = np.array([oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov])
-        metrics = np.concatenate((metrics, accs))
-        with open(str(test_metrics_path), 'a') as csvfile:
-            writer = csv.writer(csvfile)
-            metrics_csv = ["{:0.{precision}f}".format(v, precision=DECIMALS) for v in metrics]
-            metrics_csv.append(k)
-            metrics_csv.append(best_model_path)
-            writer.writerow(metrics_csv)
-            csvfile.close()
-
-        #Udate k of K-fold
-        k+=1
