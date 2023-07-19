@@ -3,10 +3,11 @@ from os.path import join
 import numpy as np
 from laspy.file import File
 from ismember import ismember
+from voxelize import voxelize
 
 
 class GeneralDataset():
-	def __init__(self, files, num_dims, cube_size=10, npoints=4096, split='pred', seed=np.random.randint(0,100), sigma=0.0, zyx_max_angle=[0,0,0], overlap=0):
+	def __init__(self, files, num_dims, cube_size=10, npoints=4096, split='pred', seed=np.random.randint(0,100), sigma=0.0, zyx_max_angle=[0,0,0], overlap=0, voxel_size=None):
 		'''
 		Inicialization of the Dataset.
 
@@ -19,6 +20,7 @@ class GeneralDataset():
 		:param sigma: standar deviation of the normal distribution used to augment train data.
 		:param zyx_max_angle: ± maximum angles applied for data augmnetation in Z, Y and X. [Default = [0,0,0]].
 		:param overlap: min overlap between cubes in pred and test. [Default = 0].
+		:param voxel_size: size of the voxel. If None the point cloud is not voxelised. [Default = None].
 		'''
 
 		self.files = files
@@ -29,6 +31,7 @@ class GeneralDataset():
 		self.zyx_max_angle = zyx_max_angle
 		self.split = split
 		self.overlap = overlap
+		self.voxel_size=voxel_size
 		
 		#List with files that belong to the dataset
 		
@@ -182,9 +185,12 @@ class GeneralDataset():
 
 			# Load labels of each point
 			semantic_seg = (inFile.Classification).astype(np.int32)
-			instance_seg = (inFile.user_data).astype(np.int32)
-			semantic_seg_nodes = (inFile.nodes).astype(np.int32)
-			semantic_seg[semantic_seg_nodes==1] = semantic_seg.max()+1 # labels of nodes
+			instance_seg = (inFile.instances).astype(np.int32)
+
+			if not self.voxel_size is None:
+				uniq_idx = voxelize(coordinates, self.voxel_size)
+				coordinates, semantic_seg, instance_seg = coordinates[uniq_idx], semantic_seg[uniq_idx], instance_seg[uniq_idx]
+
 
 			# Choose a random point as center of the cube that will be taken
 			curcenter = coordinates[self.np_RandomState.choice(len(coordinates),1)[0],:]
@@ -200,7 +206,7 @@ class GeneralDataset():
 			raw_point_set += self.np_RandomState.normal(0, self.sigma, (len(raw_point_set),3))
 
 			# Move points to the origin and resize to values [0,1]
-			final_point_set = (raw_point_set - np.amin(raw_point_set, axis = 0))/self.cube_size
+			final_point_set = (raw_point_set - np.mean(raw_point_set, axis = 0))/self.cube_size
 
 			# Rotate point cloud in zyx random angles
 			zyx = [self.np_RandomState.uniform()*self.zyx_max_angle[0]*2 - self.zyx_max_angle[0],
@@ -219,6 +225,7 @@ class GeneralDataset():
 										[-sv_y,      cv_y*sv_x,                   cv_x*cv_y]])
 
 			final_point_set = np.dot(rotation_matrix, final_point_set.transpose()).transpose()
+			final_point_set -= np.amin(final_point_set, axis=0)
 
 			return raw_point_set, final_point_set, final_semantic_seg, final_instance_seg
 				
@@ -231,10 +238,14 @@ class GeneralDataset():
 
 			# Load labels of the point
 			semantic_seg = (inFile.Classification).astype(np.int32)
-			instance_seg = (inFile.user_data).astype(np.int32)
-			semantic_seg_nodes = (inFile.nodes).astype(np.int32)
-			semantic_seg[semantic_seg_nodes==1] = semantic_seg.max()+1 # labels of nodes
+			instance_seg = (inFile.instances).astype(np.int32)
+			#semantic_seg_nodes = (inFile.nodes).astype(np.int32)
+			#semantic_seg[semantic_seg_nodes==1] = semantic_seg.max()+1 # labels of nodes
 			
+			if not self.voxel_size is None:
+				uniq_idx = voxelize(coordinates, self.voxel_size)
+				coordinates, semantic_seg, instance_seg = coordinates[uniq_idx], semantic_seg[uniq_idx], instance_seg[uniq_idx]
+
 			# Split the point cloud in cubes
 			indexes = self.__cubes_through_the_cloud(coordinates)
 			
@@ -243,8 +254,56 @@ class GeneralDataset():
 			final_semantic_seg = semantic_seg[indexes]
 			final_instance_seg = instance_seg[indexes]
 
-			return raw_point_set, final_semantic_seg, final_instance_seg					
+			return raw_point_set, final_semantic_seg, final_instance_seg, np.ones(final_semantic_seg.shape, dtype=np.bool_)					
 
+		elif self.split == 'test_mask':
+			"""
+			Divide the point cloud in cubes covering the whole cloud.
+			Select random points inside each cube.
+			Remap the semantic labels and return a mask for those points that do not have label.
+
+			Classification remaping
+			No label -> 0 -> mask=0
+			Vertical face Lateral -> 1 -> 3
+			Vertical face Vertical -> 2 -> 2
+			Chord -> 3 -> 1
+			Horizontal face Lateral -> 4 -> 3
+			Horizontal face Vertical -> 5 -> 2
+			Inner face Lateral -> 6 -> 3
+			Inner face Horizontal -> 7 -> 2
+			"""
+
+			# Load labels of the point
+			semantic_seg_orig = (inFile.Classification).astype(np.int32)
+			instance_seg = (inFile.pt_src_id).astype(np.int32)
+
+			# remap semantic
+			semantic_seg = np.zeros(semantic_seg_orig.shape, dtype=np.int32)
+			semantic_seg[semantic_seg_orig == 1] = 3
+			semantic_seg[semantic_seg_orig == 2] = 2
+			semantic_seg[semantic_seg_orig == 3] = 1
+			semantic_seg[semantic_seg_orig == 4] = 3
+			semantic_seg[semantic_seg_orig == 5] = 2
+			semantic_seg[semantic_seg_orig == 6] = 3
+			semantic_seg[semantic_seg_orig == 7] = 2
+			mask = np.ones(semantic_seg.shape, dtype=np.bool_)
+			mask[semantic_seg_orig == 0] = 0
+			
+			if not self.voxel_size is None:
+				uniq_idx = voxelize(coordinates, self.voxel_size)
+				coordinates, semantic_seg, instance_seg, mask = coordinates[uniq_idx], semantic_seg[uniq_idx], instance_seg[uniq_idx], mask[uniq_idx]
+
+			# Split the point cloud in cubes
+			indexes = self.__cubes_through_the_cloud(coordinates)
+			
+
+			raw_point_set = coordinates[indexes]
+			final_semantic_seg = semantic_seg[indexes]
+			final_instance_seg = instance_seg[indexes]
+			final_mask = mask[indexes]
+
+			return raw_point_set, final_semantic_seg, final_instance_seg, final_mask
+			
 		elif self.split == 'pred':
 			"""
 			Divide the point cloud in cubes covering the whole cloud.

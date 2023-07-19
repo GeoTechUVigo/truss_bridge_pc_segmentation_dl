@@ -94,7 +94,8 @@ def instance_metrics(y_real: list, y_pred: list, threashold:float = 0.5):
         maxIoU[i] = ious.max()
 
         # check errors
-        errors[np.logical_and(y_real== ids_real[i], y_pred==this_ids_pred[ious.argmax()])] = False
+        if ious.max() > threashold:
+            errors[np.logical_and(y_real== ids_real[i], y_pred==this_ids_pred[ious.argmax()])] = False
 
     # mPrec
     mPrec = np.sum(maxIoU > threashold) / len(ids_pred)

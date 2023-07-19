@@ -8,10 +8,14 @@
 	"runArgs": [ "--runtime=nvidia" ], // Use GPU nvidia
 
 	// Add the IDs of extensions you want installed when the container is created.
-	"extensions": [
-		"ms-python.python@2020.8.101144"
-		// "ms-python.vscode-pylance@2020.8.0"
-	],
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python@2020.8.101144"
+				// "ms-python.vscode-pylance@2020.8.0"
+			]
+		}
+	},
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],

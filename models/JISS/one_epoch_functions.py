@@ -47,9 +47,9 @@ def train_one_epoch(sess, ops, dataset, batch_size):
 
     loss_sum = 0
     loss_sem_sum = 0
-    loss_dist_sum = 0
-    loss_box_sum = 0
-    loss_n_sum = 0
+    loss_disc_sum = 0
+    loss_l_var_sum = 0
+    loss_l_dist_sum = 0
 
 
     for batch_idx in range(num_batches):
@@ -64,24 +64,24 @@ def train_one_epoch(sess, ops, dataset, batch_size):
         #    [ops['merged'], ops['step'], ops['learning_rate'], ops['train_op'], ops['loss'], ops['sem_loss'],
         #     ops['disc_loss'], ops['l_var'], ops['l_dist']], feed_dict=feed_dict)
 
-        summary, step, lr_rate, _, loss_val, sem_loss_val, disc_loss_val, box_los_val, n_loss_val = sess.run(
+        summary, step, lr_rate, _, loss_val, sem_loss_val, disc_loss_val, l_var_loss, l_dist_loss = sess.run(
             [ops['merged'], ops['step'], ops['learning_rate'], ops['train_op'], ops['loss'], ops['sem_loss'],
-             ops['disc_loss'], ops['box_loss'], ops['n_loss']], feed_dict=feed_dict)
+             ops['disc_loss'], ops['l_var'], ops['l_dist']], feed_dict=feed_dict)
 
         # train_writer.add_summary(summary, step)
         loss_sum += loss_val
         loss_sem_sum += sem_loss_val
-        loss_dist_sum += disc_loss_val
-        loss_box_sum += box_los_val
-        loss_n_sum += n_loss_val
+        loss_disc_sum += disc_loss_val
+        loss_l_var_sum += l_var_loss
+        loss_l_dist_sum += l_dist_loss
 
     loss_train = loss_sum / num_batches
     loss_sem_sum = loss_sem_sum / num_batches
-    loss_dist_sum = loss_dist_sum / num_batches
-    loss_box_sum = loss_box_sum / num_batches
-    loss_n_sum = loss_n_sum / num_batches
+    loss_disc_sum = loss_disc_sum / num_batches
+    loss_l_var = loss_l_var_sum / num_batches
+    loss_l_dist = loss_l_dist_sum / num_batches
 
-    return loss_train, loss_sem_sum, loss_dist_sum, loss_box_sum, loss_n_sum
+    return loss_train, loss_sem_sum, loss_disc_sum, loss_l_var, loss_l_dist
 
 
 def val_one_epoch(sess, ops, dataset, batch_size, num_classes, file_name: str=None, bandwidth=1):
@@ -123,9 +123,9 @@ def val_one_epoch(sess, ops, dataset, batch_size, num_classes, file_name: str=No
     # Variables to calculate the metrics. One for each class in segmentation.
     loss_sum = 0
     loss_sem_sum = 0
-    loss_dist_sum = 0
-    loss_box_sum = 0
-    loss_n_sum = 0
+    loss_disc_sum = 0
+    loss_l_var_sum = 0
+    loss_l_dist_sum = 0
 
     # Semantic: oAcc, mAcc and mIoU
     sem_metrics_sum = np.zeros(3)
@@ -145,16 +145,16 @@ def val_one_epoch(sess, ops, dataset, batch_size, num_classes, file_name: str=No
                      ops['is_training_pl']: is_training}
 
         # Prediction
-        pred_ins_val, pred_sem_label_val, loss_val, sem_loss_val, disc_loss_val, box_los_val, n_loss_val = sess.run(
-            [ops['pred_ins'], ops['pred_sem_label'], ops['loss'], ops['sem_loss'], ops['disc_loss'], ops['box_loss'], 
-             ops['n_loss']], feed_dict=feed_dict)
+        pred_ins_val, pred_sem_label_val, loss_val, sem_loss_val, disc_loss_val, l_var_loss, l_dist_loss = sess.run(
+            [ops['pred_ins'], ops['pred_sem_label'], ops['loss'], ops['sem_loss'], ops['disc_loss'], ops['l_var'], 
+             ops['l_dist']], feed_dict=feed_dict)
 
         # Loss
         loss_sum += loss_val
         loss_sem_sum += sem_loss_val
-        loss_dist_sum += disc_loss_val
-        loss_box_sum += box_los_val
-        loss_n_sum += n_loss_val
+        loss_disc_sum += disc_loss_val
+        loss_l_var_sum += l_var_loss
+        loss_l_dist_sum += l_dist_loss
 
         # Semantic metrics
         oAcc, mAcc, mIoU, accs, _ = metrics.semantic_metrics(current_sem.reshape(-1), pred_sem_label_val.reshape(-1), num_classes)
@@ -179,9 +179,9 @@ def val_one_epoch(sess, ops, dataset, batch_size, num_classes, file_name: str=No
 
     loss_val = loss_sum / num_batches
     loss_sem = loss_sem_sum / num_batches
-    loss_dist = loss_dist_sum / num_batches
-    loss_box = loss_box_sum / num_batches
-    loss_n = loss_n_sum / num_batches
+    loss_disc = loss_disc_sum / num_batches
+    loss_l_var = loss_l_var_sum / num_batches
+    loss_l_dist = loss_l_dist_sum / num_batches
 
     sem_metrics = sem_metrics_sum / num_batches
     sem_metrics_classbyclass = sem_metrics_classbyclass / num_batches
@@ -195,10 +195,10 @@ def val_one_epoch(sess, ops, dataset, batch_size, num_classes, file_name: str=No
     cov = ins_metrics[2]
     wCov = ins_metrics[3]
 
-    return loss_val, loss_sem, loss_dist, loss_box, loss_n, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov, sem_metrics_classbyclass
+    return loss_val, loss_sem, loss_disc, loss_l_var, loss_l_dist, oAcc, mAcc, mIoU, mPrec, mRec, cov, wCov, sem_metrics_classbyclass
 
 
-def test_on_dataset(sess, ops, dataset, num_classes, mean_num_pts_in_group, save_folder=None, save_cubes=None, save_errors=None, bandwidth=1):
+def test_on_dataset(sess, ops, dataset, batch_size, num_classes, mean_num_pts_in_group, save_folder=None, save_cubes=None, bandwidth=1):
     """
     Function for artificial neural network test in the tensorflow sessions.
     It uses the data from dataset in order by taking batches of the indicated size.
@@ -213,6 +213,7 @@ def test_on_dataset(sess, ops, dataset, num_classes, mean_num_pts_in_group, save
     :param ops: dict mapping from string to tf ops.
     :param train_writer: tf.summary.FileWriter.
     :param dataset: GeneralDataset obeject with the dataset used for test.
+    :param batch_size: size of the batch.
     :param save_folder: folder for saving the point clouds segmented [default: None].
     :param save_cubes: folder for saving the cubes of each point cloud [default: None].
     :param errors: folder for saving the point cloud with its errors (semantic: (TP->0, otherwise-> 1), instance: (TP->0, otherwise-> 1))[default: None].
@@ -240,7 +241,7 @@ def test_on_dataset(sess, ops, dataset, num_classes, mean_num_pts_in_group, save
     for i in range(len(dataset)):
 
         # Load data
-        raw_data, cur_sem, cur_group = dataset[i]
+        raw_data, cur_sem, cur_group, mask = dataset[i]
 
         # Arrays to save the prediction of each cube
         sem_pred_cubes = np.zeros((raw_data[:,:,0].shape))
@@ -250,6 +251,7 @@ def test_on_dataset(sess, ops, dataset, num_classes, mean_num_pts_in_group, save
         cur_pred_sem_softmax = np.zeros([cur_sem.shape[0], cur_sem.shape[1], num_classes])
         group_output = np.zeros_like(cur_group)
 
+        input_coordinates = np.zeros((batch_size, cur_sem.shape[0], cur_sem.shape[1]))
 
         gap = 0.1
         cur_data = raw_data - raw_data.reshape(-1,3).min(axis=0) # move min to 0,0,0
@@ -259,50 +261,67 @@ def test_on_dataset(sess, ops, dataset, num_classes, mean_num_pts_in_group, save
         volume_seg = -1 * np.ones([volume_num, volume_num, volume_num]).astype(np.int32)
 
         # Split in batches
-        for j in range(0, len(raw_data)):
+        num_batches = np.ceil(len(raw_data) / batch_size).astype(np.int_)        
+
+        end=0
+        for j in range(num_batches):
+            start = end
+            end = start + batch_size
+
+            if end > len(raw_data):
+                end = len(raw_data)
 
             # Seletc batch
-            coordinates_norm = raw_data[j]
-            pts = cur_data[j]
-            group = cur_group[j]
-            sem = cur_sem[j]
+            coordinates_norm = np.zeros(((batch_size), raw_data.shape[1], raw_data.shape[2]))
+            #pts = np.zeros(((batch_size), cur_data.shape[1], cur_data.shape[2]))
+            group = np.zeros(((batch_size), cur_group.shape[1]))
+            sem = np.zeros(((batch_size), cur_sem.shape[1]))
+
+            coordinates_norm[0:end-start] = raw_data[start:end]
+            #pts[0:end-start] = cur_data[start:end]
+            group[0:end-start] = cur_group[start:end]
+            sem[0:end-start] = cur_sem[start:end]
 
             # Move points to the origin and resize to values [0,1]
-            coordinates_norm = (coordinates_norm - coordinates_norm.min(axis=0))/dataset.cube_size
-
-            feed_dict = {ops['pointclouds_pl']: coordinates_norm.reshape(1,coordinates_norm.shape[0], coordinates_norm.shape[1]),
+            coordinates_norm = (coordinates_norm - np.expand_dims(coordinates_norm.min(axis=1),axis=1)) / dataset.cube_size
+            
+            feed_dict = {ops['pointclouds_pl']: coordinates_norm,
                             ops['is_training_pl']: is_training}
         
             # Prediction
             pred_ins_val, pred_sem_label_val, pred_sem_softmax_val = sess.run(
                 [ops['pred_ins'], ops['pred_sem_label'], ops['pred_sem_softmax']], feed_dict=feed_dict)
 
-            pred_val = np.squeeze(pred_ins_val, axis=0)
-            pred_sem = np.squeeze(pred_sem_label_val, axis=0)
-            pred_sem_softmax = np.squeeze(pred_sem_softmax_val, axis=0)
-            cur_pred_sem[j, :] = pred_sem
-            cur_pred_sem_softmax[j, ...] = pred_sem_softmax
+            for k in range(end-start):
 
-            # cluster
-            group_seg = {}
-            num_clusters, labels, cluster_centers = cluster(pred_val, bandwidth)
-            for idx_cluster in range(num_clusters):
-                tmp = (labels == idx_cluster)
-                estimated_seg = int(stats.mode(pred_sem[tmp])[0])
-                group_seg[idx_cluster] = estimated_seg
+                pred_val = pred_ins_val[k]
+                pred_sem = pred_sem_label_val[k]
+                pred_sem_softmax = pred_sem_softmax_val[k]
+                cur_pred_sem[start+k, :] = pred_sem
+                cur_pred_sem_softmax[start+k, ...] = pred_sem_softmax
 
-            groupids_block = labels
+                # cluster
+                group_seg = {}
+                num_clusters, labels, cluster_centers = cluster(pred_val, bandwidth)
+                for idx_cluster in range(num_clusters):
+                    tmp = (labels == idx_cluster)
+                    if not np.any(tmp): continue
+                    estimated_seg = int(stats.mode(pred_sem[tmp])[0])
+                    group_seg[idx_cluster] = estimated_seg
 
-            groupids = BlockMerging(volume, volume_seg, pts,
-                                    groupids_block.astype(np.int32), group_seg, gap)
+                # Max number of clusters
+                labels[labels>99] = 99
+                groupids_block = labels
 
-            group_output[j, :] = groupids
+                groupids = BlockMerging(volume, volume_seg, cur_data[start+k],
+                                        groupids_block.astype(np.int32), group_seg, gap)
 
-            # Save each cube as a point cloud
-            if save_cubes != None:
-                file_name = pathlib.PurePath(save_cubes).joinpath(pathlib.PurePath(dataset.files[i]).stem + '_' + str(j) + pathlib.PurePath(dataset.files[i]).suffix)
-                save_las(str(file_name), raw_data[j], cur_pred_sem[j], group_output[j])
+                group_output[start+k, :] = groupids
 
+                # Save each cube as a point cloud
+                if save_cubes != None:
+                    file_name = pathlib.PurePath(save_cubes).joinpath(pathlib.PurePath(dataset.files[i]).stem + '_' + str(start+k) + pathlib.PurePath(dataset.files[i]).suffix)
+                    save_las(str(file_name), raw_data[start+k], cur_pred_sem[start+k], group_output[start+k])
 
         group_pred = group_output.reshape(-1)
         seg_pred = cur_pred_sem.reshape(-1)
@@ -338,6 +357,7 @@ def test_on_dataset(sess, ops, dataset, num_classes, mean_num_pts_in_group, save
         sem_softmax = seg_pred_softmax
         sem_gt = seg_gt
         ins_gt = cur_group.reshape(-1)
+        mask = mask.reshape(-1)
 
         # Adapt variables to the rest of the code
         raw_data = raw_data.reshape(-1,3)
@@ -347,21 +367,24 @@ def test_on_dataset(sess, ops, dataset, num_classes, mean_num_pts_in_group, save
         sem = cur_sem.reshape(sem_pred.shape)
 
         # Instance metrics
-        mPrec, mRecall, cov, wCov, errors_ins = metrics.instance_metrics(label, inst_pred)
+        mPrec, mRecall, cov, wCov, errors_ins_mask = metrics.instance_metrics(label[mask], inst_pred[mask])
         ins_metrics_sum += mPrec, mRecall, cov, wCov
         # Semantic metrics
-        oAcc, mAcc, mIoU, accs, errors_sem = metrics.semantic_metrics(sem, sem_pred, num_classes)
+        oAcc, mAcc, mIoU, accs, errors_sem_mask = metrics.semantic_metrics(sem[mask], sem_pred[mask], num_classes)
         sem_metrics_sum += oAcc, mAcc, mIoU
         sem_metrics_classbyclass += accs
 
+        errors_ins = np.zeros(sem_pred.shape, dtype=np.int_)
+        errors_ins[mask] = errors_ins_mask.astype(np.int_)
+        errors_ins[~mask] = 2
+        errors_sem = np.zeros(sem_pred.shape, dtype=np.int_)
+        errors_sem[mask] = errors_sem_mask.astype(np.int_)
+        errors_sem[~mask] = 2
+        
         # save point cloud
         if save_folder != None:
             file_name = pathlib.PurePath(save_folder).joinpath(pathlib.PurePath(dataset.files[i]).name)
-            save_las(str(file_name), raw_data, sem_pred, inst_pred)
-
-        if save_errors!= None:
-            file_name = pathlib.PurePath(save_errors).joinpath(pathlib.PurePath(dataset.files[i]).name)
-            save_las(str(file_name), raw_data, errors_sem, errors_ins)
+            save_las(str(file_name), raw_data, sem_pred, inst_pred, errors_sem, errors_ins)
 
     sem_metrics = sem_metrics_sum / len(dataset)
     sem_metrics_classbyclass = sem_metrics_classbyclass / len(dataset)
@@ -501,4 +524,4 @@ def pred_on_dataset(sess, ops, dataset, save_folder, num_classes, mean_num_pts_i
             file_name = pathlib.PurePath(save_folder).joinpath(pathlib.PurePath(dataset.files[i]).name)
             save_las(str(file_name), raw_data, sem_pred, inst_pred, semantic_softmax=np.max(sem_softmax, axis=1))
 
-    return 
+    return
