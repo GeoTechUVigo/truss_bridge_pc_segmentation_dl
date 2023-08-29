@@ -29,7 +29,7 @@ If you find our work useful in your research, please consider citing:
 ```
 
 ## Licence
-Automated instance and semantic segmentation of point clouds of large metallic truss bridges.
+Automated production of synthetic point clouds of truss bridges for semantic and instance segmentation using deep learning models.
 
 Copyright (C) 2023 GeoTECH Group <geotech@uvigo.gal>
 
