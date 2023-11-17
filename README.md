@@ -25,7 +25,19 @@ The real data must be all together in the same folder.
 ## Citation
 If you find our work useful in your research, please consider citing:
 ```
-
+@article{LAMAS2024105176,
+title = {Automated production of synthetic point clouds of truss bridges for semantic and instance segmentation using deep learning models},
+journal = {Automation in Construction},
+volume = {158},
+pages = {105176},
+year = {2024},
+issn = {0926-5805},
+doi = {https://doi.org/10.1016/j.autcon.2023.105176},
+url = {https://www.sciencedirect.com/science/article/pii/S0926580523004363},
+author = {Daniel Lamas and Andrés Justo and Mario Soilán and Belén Riveiro},
+keywords = {Point clouds, Truss bridge, Semantic segmentation, Instance segmentation, Synthetic data, Deep learning},
+abstract = {The cost of obtaining large volumes of bridge data with technologies like laser scanners hinders the training of deep learning models. To address this, this paper introduces a new method for creating synthetic point clouds of truss bridges and demonstrates the effectiveness of a deep learning approach for semantic and instance segmentation of these point clouds. The method generates point clouds by specifying the dimensions and components of the bridge, resulting in high variability in the generated dataset. A deep learning model is trained using the generated point clouds, which is an adapted version of JSNet. The accuracy of the results surpasses previous heuristic methods. The proposed methodology has significant implications for the development of automated inspection and monitoring systems for truss bridges. Furthermore, the success of the deep learning approach suggests its potential for semantic and instance segmentation of complex point clouds beyond truss bridges.}
+}
 ```
 
 ## Licence
